@@ -315,8 +315,8 @@ class Trie {
               success = true;
             }
           } else {
-            //auto twv = new TrieNodeWithValue<T>(c, value);
-            t->InsertChildNode(c, std::move(std::unique_ptr<TrieNode>(new TrieNodeWithValue<T>(c, value))));
+            // Do not use move on a temporary object
+            t->InsertChildNode(c, std::unique_ptr<TrieNode>(new TrieNodeWithValue<T>(c, value)));
             success = true;
           }
         } else {
@@ -378,6 +378,7 @@ class Trie {
         v[v.size() - 2]->InsertChildNode(new_node->GetKeyChar(), std::unique_ptr<TrieNode>(new_node));
       }
     }
+    // Recursively remove nodes that have no children and are not terminal node of another key.
     for (int i = n; i > 0; i--) {
       if (v[i]->HasChildren() || v[i]->IsEndNode()) {
         break;
