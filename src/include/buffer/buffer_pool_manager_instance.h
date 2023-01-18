@@ -15,6 +15,7 @@
 #include <list>
 #include <mutex>  // NOLINT
 #include <unordered_map>
+#include <unordered_set>
 
 #include "buffer/buffer_pool_manager.h"
 #include "buffer/lru_k_replacer.h"
@@ -162,6 +163,9 @@ class BufferPoolManagerInstance : public BufferPoolManager {
   /** This latch protects shared data structures. We recommend updating this comment to describe what it protects. */
   std::mutex latch_;
 
+  std::unordered_map<page_id_t, bool>is_dirty_page;
+  std::unordered_map<page_id_t, int>pins;
+  std::unordered_set<page_id_t>pages_exist;
   /**
    * @brief Allocate a page on disk. Caller should acquire the latch before calling this function.
    * @return the id of the allocated page
