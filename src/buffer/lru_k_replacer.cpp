@@ -25,14 +25,14 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
   latch_.lock();
   bool succ = false;
   int t = this->current_timestamp_ + 1;
-  int lastTime = this->current_timestamp_ + 1;
+  int lastTime = this->current_timestamp_ + 1;  // use for LRU
   for (auto p : this->evictable) {
     if (p.second == true) {
       frame_id_t cur = p.first;
       auto cur_times = this->times[cur];
       if (cur_times.size() == 0) continue;
-      if (cur_times.size() < this->k_) {
-        if (t != -1) {
+      if (cur_times.size() < this->k_) {  // less than k records, use LRU
+        if (t != -1) {  //-1 denotes inf
           t = -1;
           lastTime = cur_times.back();
           *frame_id = cur;
@@ -44,7 +44,7 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
             succ = true;
           }
         }
-      } else {
+      } else {  // more or equal to k records, use LRU-k
         int cur_time = cur_times[cur_times.size() - this->k_];
         if (cur_time < t) {
           t = cur_time;

@@ -24,13 +24,12 @@ namespace bustub {
 template <typename K, typename V>
 ExtendibleHashTable<K, V>::ExtendibleHashTable(size_t bucket_size)
     : global_depth_(0), bucket_size_(bucket_size), num_buckets_(1) {
-  auto bucket = Bucket(bucket_size, 0);         // ????
+  auto bucket = Bucket(bucket_size, 0);         // *************Use object instead of pointer can avoid memory leak. Why?******************
   this->dir_.emplace_back(std::make_shared<Bucket>(bucket));
 }
 template <typename K, typename V>
 ExtendibleHashTable<K, V>::~ExtendibleHashTable(){
   for(auto &b:dir_){
-    //LOG_DEBUG("%d    %ld", b.unique(),b.use_count());
     b.reset();
   }
 }
@@ -94,15 +93,15 @@ auto ExtendibleHashTable<K, V>::Remove(const K &key) -> bool {
 
 template <typename K, typename V>
 void ExtendibleHashTable<K, V>::Insert(const K &key, const V &value) {
-  latch_.lock();
-  //LOG_DEBUG("Insert begin");
-  int idx = IndexOf(key);
-  auto ori_bucket = this->dir_[idx];
-  bool success = ori_bucket->Insert(key, value);
+  latch_.lock();  
+  int idx = IndexOf(key); // find index of the key
+  auto ori_bucket = this->dir_[idx];  
+  bool success = ori_bucket->Insert(key, value);  // try inserting into the bucket to the index
   if (!success) {
-    int dep = ori_bucket->GetDepth();
+    int dep = ori_bucket->GetDepth(); 
     auto bucket = new Bucket(this->bucket_size_, dep + 1);
     ori_bucket->IncrementDepth();
+    // if local depth == global depth_, we need double the size of dir
     if (dep == this->global_depth_) {
       this->global_depth_++;
       int ori_size = this->dir_.size();
@@ -111,7 +110,7 @@ void ExtendibleHashTable<K, V>::Insert(const K &key, const V &value) {
         this->dir_.emplace_back(ptr);
       }
     }
-    //LOG_DEBUG("Insert begin 2 ");
+    // split the full bucket into two buckets
     int m1 = (1 << dep), m2 = (1 << (dep + 1));
     auto items = ori_bucket->GetItems();
     for (auto &p : items) {
@@ -122,18 +121,13 @@ void ExtendibleHashTable<K, V>::Insert(const K &key, const V &value) {
       }
     }
     int s = this->dir_.size();
-    //LOG_DEBUG("%d   %d", idx, s);
     if (idx < int(s / 2)){
       idx += this->dir_.size() / 2;
     }
     this->dir_[idx].reset(bucket);
     latch_.unlock();
-    //LOG_DEBUG("Insert retry");
     Insert(key, value);
-    
-    
   }else{
-    //LOG_DEBUG("Insert succeed, the index is %d", idx);
     latch_.unlock();
   }
   
