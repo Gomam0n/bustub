@@ -15,7 +15,7 @@
 #include <functional>
 #include <list>
 #include <utility>
-
+#include "common/logger.h"
 #include "container/hash/extendible_hash_table.h"
 #include "storage/page/page.h"
 
@@ -24,9 +24,16 @@ namespace bustub {
 template <typename K, typename V>
 ExtendibleHashTable<K, V>::ExtendibleHashTable(size_t bucket_size)
     : global_depth_(0), bucket_size_(bucket_size), num_buckets_(1) {
-      auto bucket = new Bucket(bucket_size, 0);
-      this->dir_.push_back(std::make_shared(bucket));
-    }
+  auto bucket = Bucket(bucket_size, 0);         // ????
+  this->dir_.emplace_back(std::make_shared<Bucket>(bucket));
+}
+template <typename K, typename V>
+ExtendibleHashTable<K, V>::~ExtendibleHashTable(){
+  for(auto &b:dir_){
+    //LOG_DEBUG("%d    %ld", b.unique(),b.use_count());
+    b.reset();
+  }
+}
 
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::IndexOf(const K &key) -> size_t {
@@ -69,48 +76,67 @@ auto ExtendibleHashTable<K, V>::GetNumBucketsInternal() const -> int {
 
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Find(const K &key, V &value) -> bool {
+  latch_.lock();
   int idx = IndexOf(key);
   bool success = this->dir_[idx]->Find(key, value);
+  latch_.unlock();
   return success;
 }
 
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Remove(const K &key) -> bool {
+  latch_.lock();
   int idx = IndexOf(key);
-  bool success = this->dir_[idx]->Remove(key, value);
+  bool success = this->dir_[idx]->Remove(key);
+  latch_.unlock();
   return success;
 }
 
 template <typename K, typename V>
 void ExtendibleHashTable<K, V>::Insert(const K &key, const V &value) {
+  latch_.lock();
+  //LOG_DEBUG("Insert begin");
   int idx = IndexOf(key);
   auto ori_bucket = this->dir_[idx];
   bool success = ori_bucket->Insert(key, value);
-  if(!success){
+  if (!success) {
     int dep = ori_bucket->GetDepth();
-    auto bucket = new Bucket(this->bucket_size_, dep+ 1)
+    auto bucket = new Bucket(this->bucket_size_, dep + 1);
     ori_bucket->IncrementDepth();
-    if(dep== this->global_depth_){
+    if (dep == this->global_depth_) {
       this->global_depth_++;
       int ori_size = this->dir_.size();
-      for(int i = 0;i<ori_size;i++){
+      for (int i = 0; i < ori_size; i++) {
         std::shared_ptr<Bucket> ptr(this->dir_[i]);
-        this->dir_.push_back(ptr);
+        this->dir_.emplace_back(ptr);
       }
     }
-    
-    int m1 = (1<<dep), m2= (1<<(dep+1));
+    //LOG_DEBUG("Insert begin 2 ");
+    int m1 = (1 << dep), m2 = (1 << (dep + 1));
     auto items = ori_bucket->GetItems();
-    for(auto &p:items){
-      auto k = p.first;
-      if((k&m1) != (k&m2)){
-        ori_bucket->Remove(k);
-        bucket->Insert(k, p.second);
+    for (auto &p : items) {
+      auto k = IndexOf(p.first);
+      if ((k & m1) != (k & m2)) {
+        ori_bucket->Remove(p.first);
+        bucket->Insert(p.first, p.second);
       }
     }
-    this->dir_[idx + this->dir_.size() / 2] = std::make_shared(bucket);
-
+    int s = this->dir_.size();
+    //LOG_DEBUG("%d   %d", idx, s);
+    if (idx < int(s / 2)){
+      idx += this->dir_.size() / 2;
+    }
+    this->dir_[idx].reset(bucket);
+    latch_.unlock();
+    //LOG_DEBUG("Insert retry");
+    Insert(key, value);
+    
+    
+  }else{
+    //LOG_DEBUG("Insert succeed, the index is %d", idx);
+    latch_.unlock();
   }
+  
 }
 
 //===--------------------------------------------------------------------===//
@@ -122,8 +148,8 @@ ExtendibleHashTable<K, V>::Bucket::Bucket(size_t array_size, int depth) : size_(
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Bucket::Find(const K &key, V &value) -> bool {
   auto it = this->list_.begin();
-  while(it != this->list_.end()){
-    if((*it).first == key){
+  while (it != this->list_.end()) {
+    if ((*it).first == key) {
       value = (*it).second;
       return true;
     }
@@ -135,8 +161,8 @@ auto ExtendibleHashTable<K, V>::Bucket::Find(const K &key, V &value) -> bool {
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Bucket::Remove(const K &key) -> bool {
   auto it = this->list_.begin();
-  while(it != this->list_.end()){
-    if((*it).first == key){
+  while (it != this->list_.end()) {
+    if ((*it).first == key) {
       this->list_.erase(it);
       return true;
     }
@@ -148,17 +174,18 @@ auto ExtendibleHashTable<K, V>::Bucket::Remove(const K &key) -> bool {
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Bucket::Insert(const K &key, const V &value) -> bool {
   auto it = this->list_.begin();
-  while(it != this->list_.end()){
-    if((*it).first == key){
+  while (it != this->list_.end()) {
+    if ((*it).first == key) {
       (*it).second = value;
       return true;
     }
     ++it;
   }
-  if(IsFull()){
+  if (IsFull()) {
     return false;
   }
-  this->list_->insert(std::make_pair(key, value));
+  this->list_.emplace_back(std::make_pair(key, value));
+  return true;
 }
 
 template class ExtendibleHashTable<page_id_t, Page *>;

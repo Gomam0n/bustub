@@ -44,6 +44,8 @@ class ExtendibleHashTable : public HashTable<K, V> {
    */
   explicit ExtendibleHashTable(size_t bucket_size);
 
+  ~ExtendibleHashTable();
+
   /**
    * @brief Get the global depth of the directory.
    * @return The global depth of the directory.
@@ -111,7 +113,7 @@ class ExtendibleHashTable : public HashTable<K, V> {
   class Bucket {
    public:
     explicit Bucket(size_t size, int depth = 0);
-
+    ~Bucket(){}
     /** @brief Check if a bucket is full. */
     inline auto IsFull() const -> bool { return list_.size() == size_; }
 
