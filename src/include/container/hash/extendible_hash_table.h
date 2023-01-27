@@ -44,7 +44,7 @@ class ExtendibleHashTable : public HashTable<K, V> {
    */
   explicit ExtendibleHashTable(size_t bucket_size);
 
-  ~ExtendibleHashTable();
+  ~ExtendibleHashTable() override;
 
   /**
    * @brief Get the global depth of the directory.
@@ -96,7 +96,9 @@ class ExtendibleHashTable : public HashTable<K, V> {
    */
   void Insert(const K &key, const V &value) override;
 
-  /**
+  void InsertImp(const K &key, const V &value);
+
+  /*
    *
    * TODO(P1): Add implementation
    *
@@ -113,7 +115,7 @@ class ExtendibleHashTable : public HashTable<K, V> {
   class Bucket {
    public:
     explicit Bucket(size_t size, int depth = 0);
-    ~Bucket(){}
+    ~Bucket() = default;
     /** @brief Check if a bucket is full. */
     inline auto IsFull() const -> bool { return list_.size() == size_; }
 
@@ -174,6 +176,7 @@ class ExtendibleHashTable : public HashTable<K, V> {
   size_t bucket_size_;  // The size of a bucket
   int num_buckets_;     // The number of buckets in the hash table
   mutable std::mutex latch_;
+  std::mutex latch_2_;
   std::vector<std::shared_ptr<Bucket>> dir_;  // The directory of the hash table
 
   // The following functions are completely optional, you can delete them if you have your own ideas.

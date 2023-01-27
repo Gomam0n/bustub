@@ -141,7 +141,9 @@ class BufferPoolManagerInstance : public BufferPoolManager {
    */
   auto DeletePgImp(page_id_t page_id) -> bool override;
 
-  auto RecordInReplacer(frame_id_t) -> void;
+  auto RecordInReplacer(frame_id_t frame_id) -> void;
+
+  auto Pin(page_id_t page_id, frame_id_t frame_id) -> void;
 
   /** Number of pages in the buffer pool. */
   const size_t pool_size_;
@@ -164,8 +166,10 @@ class BufferPoolManagerInstance : public BufferPoolManager {
   std::list<frame_id_t> free_list_;
   /** This latch protects shared data structures. We recommend updating this comment to describe what it protects. */
   std::mutex latch_;
+  std::mutex flush_latch_;
 
-  std::unordered_set<page_id_t> pages_exist;
+  std::unordered_set<page_id_t> pages_exist_;
+  std::unordered_map<page_id_t, bool> is_pin_;
   /**
    * @brief Allocate a page on disk. Caller should acquire the latch before calling this function.
    * @return the id of the allocated page
