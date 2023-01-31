@@ -82,6 +82,38 @@ class BPlusTree {
 
   void ToString(BPlusTreePage *page, BufferPoolManager *bpm) const;
 
+  // Start a new tree with only one key-value pair
+  void StartNewTree(const KeyType &key, const ValueType &value);
+
+  // Insert the key-value pair into a leaf. If insert succeed, return true. Otherwise return false.
+  auto InsertIntoLeaf(const KeyType &key, const ValueType &value, Transaction *transaction) -> bool;
+
+
+  auto FindLeafPage(const KeyType &key, bool leftMost, int mode, Transaction* transaction) -> Page *;
+
+  template <typename N>
+  N *SplitPage(N *node);
+
+  template <typename N>
+  bool CoalesceOrRedistribute(N *node, Transaction *transaction);
+
+  auto AdjustRoot(BPlusTreePage *old_root_node) -> bool;
+
+  template <typename N>
+  void Redistribute(N *neighbor_node, N *node, int index)
+
+  template <typename N>
+  bool Coalesce(N **neighbor_node, N **node, BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator> **parent, int index, Transaction *transaction)
+/*
+ * Insert key & value pair into internal page after split
+ * @param   old_node      input page from split() method
+ * @param   key
+ * @param   new_node      returned page from split() method
+ * User needs to first find the parent page of old_node, parent node must be
+ * adjusted to take info of new_node into account. Remember to deal with split
+ * recursively if necessary.
+ */
+  void InsertIntoParent(BPlusTreePage *old_node, const KeyType &key, BPlusTreePage *new_node, Transaction *transaction)
   // member variable
   std::string index_name_;
   page_id_t root_page_id_;
