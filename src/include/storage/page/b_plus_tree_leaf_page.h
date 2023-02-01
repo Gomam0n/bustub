@@ -50,23 +50,25 @@ class BPlusTreeLeafPage : public BPlusTreePage {
   void SetNextPageId(page_id_t next_page_id);
   auto KeyAt(int index) const -> KeyType;
 
-/*
- * @brief Helper method to return the first index that array_[index].key >= key. i.e. Find 
- * the insertion place of key
- */
+  auto ValueAt(int index) const -> ValueType;
+  auto GetItem(int index) -> const MappingType &;
+  /*
+   * @brief Helper method to return the first index that array_[index].key >= key. i.e. Find
+   * the insertion place of key
+   */
   auto KeyIndex(const KeyType &key, const KeyComparator &comparator) const -> int;
 
-/*
- * @brief Insert key-value pair at given index.
- */
+  /*
+   * @brief Insert key-value pair at given index.
+   */
   void InsertAt(int index, const KeyType &key, const ValueType &value);
 
-/*
- * @brief Insert key-value pair to this leaf page.
- * @return The size after insertion
- */
-  auto Insert(const KeyType &key, const ValueType &value, const KeyComparator &comparator) ->int;
-
+  auto Lookup(const KeyType &key, ValueType *value, const KeyComparator &comparator) const -> bool;
+  /*
+   * @brief Insert key-value pair to this leaf page.
+   * @return The size after insertion
+   */
+  auto Insert(const KeyType &key, const ValueType &value, const KeyComparator &comparator) -> int;
 
   // Split and Merge utility methods
   void MoveHalfTo(BPlusTreeLeafPage *recv);
@@ -76,7 +78,6 @@ class BPlusTreeLeafPage : public BPlusTreePage {
   void MoveFirstToEndOf(BPlusTreeLeafPage *recipient);
 
   void MoveLastToFrontOf(BPlusTreeLeafPage *recipient);
-
 
   void MoveAllTo(BPlusTreeLeafPage *recipient);
 

@@ -42,49 +42,41 @@ class BPlusTreeInternalPage : public BPlusTreePage {
   void SetKeyAt(int index, const KeyType &key);
   auto ValueAt(int index) const -> ValueType;
 
-/*
- * @brief Helper function to find the last index that array_[index].key <= key
- */
+  void SetValueAt(int index, const ValueType &value);
+  /*
+   * @brief Helper function to find the last index that array_[index].key <= key
+   */
   auto IndexLookup(const KeyType &key, const KeyComparator &comparator) const -> int;
 
-/*
- * @brief Helper function to the index corresponding to key
- */
+  /*
+   * @brief Helper function to the index corresponding to key
+   */
   auto Lookup(const KeyType &key, const KeyComparator &comparator) const -> ValueType;
 
-  
-/*
- * @brief Populate new root page with old_value + new_key & new_value.
- */
+  /*
+   * @brief Populate new root page with old_value + new_key & new_value.
+   */
   void PopulateNewRoot(const ValueType &old_value, const KeyType &new_key, const ValueType &new_value);
 
-/*
- * @brief Insert new_key & new_value pair right after the pair with its value ==
- * old_value
- * @return:  new size after insertion
- */
-  auto InsertNodeAfter(const ValueType &old_value, const KeyType &new_key,
-                                                    const ValueType &new_value) -> int;
+  void InsertAt(int index, const KeyType &new_key, const ValueType &new_value);
+  /*
+   * @brief Insert new_key & new_value pair right after the pair with its value ==
+   * old_value
+   * @return:  new size after insertion
+   */
+  auto InsertNodeAfter(const ValueType &old_value, const KeyType &new_key, const ValueType &new_value) -> int;
 
   auto ValueIndex(const ValueType &value) const -> int;
 
-  auto Lookup(const KeyType &key, const KeyComparator &comparator) const -> ValueType;
-
-
-/*
- * @brief Helper method to find the index to this key.
- */
-  auto IndexLookup(const KeyType &key, const KeyComparator &comparator) const -> int;
-
-
-
-
   auto RemoveAndReturnOnlyChild() -> ValueType;
+  void MoveHalfTo(BPlusTreeInternalPage *recipient, BufferPoolManager *buffer_pool_manager);
 
-
-  void MoveFirstToEndOf(BPlusTreeInternalPage *recipient, const KeyType &middle_key, BufferPoolManager *buffer_pool_manager);
+  void CopyNFrom(MappingType *items, int size, BufferPoolManager *buffer_pool_manager);
+  void MoveFirstToEndOf(BPlusTreeInternalPage *recipient, const KeyType &middle_key,
+                        BufferPoolManager *buffer_pool_manager);
   void CopyLastFrom(const MappingType &pair, BufferPoolManager *buffer_pool_manager);
-  void MoveLastToFrontOf(BPlusTreeInternalPage *recipient, const KeyType &middle_key, BufferPoolManager *buffer_pool_manager);
+  void MoveLastToFrontOf(BPlusTreeInternalPage *recipient, const KeyType &middle_key,
+                         BufferPoolManager *buffer_pool_manager);
   void CopyFirstFrom(const MappingType &pair, BufferPoolManager *buffer_pool_manager);
 
   void Remove(int index);
@@ -95,6 +87,12 @@ class BPlusTreeInternalPage : public BPlusTreePage {
 
  private:
   // Flexible array member for page data.
-  MappingType array_[1];
+  MappingType array_[2];
+  IndexPageType page_type_ __attribute__((__unused__));
+  lsn_t lsn_ __attribute__((__unused__));
+  int size_ __attribute__((__unused__));
+  int max_size_ __attribute__((__unused__));
+  page_id_t parent_page_id_ __attribute__((__unused__));
+  page_id_t page_id_ __attribute__((__unused__));
 };
 }  // namespace bustub

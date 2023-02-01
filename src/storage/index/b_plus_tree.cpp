@@ -21,7 +21,7 @@ BPLUSTREE_TYPE::BPlusTree(std::string name, BufferPoolManager *buffer_pool_manag
  * Helper function to decide whether current b+tree is empty
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::IsEmpty() const -> bool { return root_page_id_ == INVALID_PAGE_ID }
+auto BPLUSTREE_TYPE::IsEmpty() const -> bool { return root_page_id_ == INVALID_PAGE_ID; }
 /*****************************************************************************
  * SEARCH
  *****************************************************************************/
@@ -32,20 +32,20 @@ auto BPLUSTREE_TYPE::IsEmpty() const -> bool { return root_page_id_ == INVALID_P
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *transaction) -> bool {
-  if(IsEmpty()){
+  if (IsEmpty()) {
     return false;
   }
-  Page* page_ptr = FindLeafPage(key, 0, 0, transaction);
-  IN_TREE_LEAF_PAGE_TYPE* leaf_ptr = reinterpret_cast<IN_TREE_LEAF_PAGE_TYPE*>(page_ptr->GetData());
+  Page *page_ptr = FindLeafPage(key, 0, 0, transaction);
+  auto leaf_ptr = reinterpret_cast<IN_TREE_LEAF_PAGE_TYPE *>(page_ptr->GetData());
   RID temp_rid;
   bool ret = leaf_ptr->Lookup(key, &temp_rid, comparator_);
   buffer_pool_manager_->UnpinPage(page_ptr->GetPageId(), false);
 
-  if (!ret){ return false; }
+  if (!ret) {
+    return false;
+  }
   result->push_back(temp_rid);
   return true;
-
-  
 }
 
 /*****************************************************************************
@@ -60,11 +60,11 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transaction *transaction) -> bool {
-  if (IsEmpty()){
+  bool ret = false;
+  if (IsEmpty()) {
     StartNewTree(key, value);
     ret = true;
-  }
-  else{
+  } else {
     ret = InsertIntoLeaf(key, value, transaction);
   }
   return ret;
@@ -74,12 +74,12 @@ INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::StartNewTree(const KeyType &key, const ValueType &value) {
   page_id_t root_page_id;
 
-  Page* root_page_ptr = buffer_pool_manager_->NewPage(root_page_id);
+  Page *root_page_ptr = buffer_pool_manager_->NewPage(&root_page_id);
 
   root_page_id_ = root_page_id;
   UpdateRootPageId(1);
 
-  IN_TREE_LEAF_PAGE_TYPE* leaf_ptr = reinterpret_cast<IN_TREE_LEAF_PAGE_TYPE*>(root_page_ptr->GetData());
+  auto leaf_ptr = reinterpret_cast<IN_TREE_LEAF_PAGE_TYPE *>(root_page_ptr->GetData());
   leaf_ptr->Init(root_page_id, INVALID_PAGE_ID, leaf_max_size_);
   leaf_ptr->Insert(key, value, comparator_);
 
@@ -87,23 +87,22 @@ void BPLUSTREE_TYPE::StartNewTree(const KeyType &key, const ValueType &value) {
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value, Transaction *transaction) {
-  Page* page_ptr = FindLeafPage(key, false, 1, transaction);
-  if (page_ptr == nullptr){
+auto BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value, Transaction *transaction) -> bool {
+  Page *page_ptr = FindLeafPage(key, false, 1, transaction);
+  if (page_ptr == nullptr) {
     return false;
   }
-  IN_TREE_LEAF_PAGE_TYPE* leaf_ptr = reinterpret_cast<IN_TREE_LEAF_PAGE_TYPE*>(page_ptr->GetData());
+  auto leaf_ptr = reinterpret_cast<IN_TREE_LEAF_PAGE_TYPE *>(page_ptr->GetData());
 
   int ori_size = leaf_ptr->GetSize();
   int size = leaf_ptr->Insert(key, value, comparator_);
 
-  if(size == ori_size){
-    buffer_pool_manager_->UnpinPage(new_leaf_ptr->GetPageId(), true);
+  if (size == ori_size) {
+    buffer_pool_manager_->UnpinPage(page_ptr->GetPageId(), true);
     return false;
   }
-  else if (size == leaf_ptr->GetMaxSize()){
-
-    IN_TREE_LEAF_PAGE_TYPE* new_leaf_ptr = SplitPage<IN_TREE_LEAF_PAGE_TYPE>(leaf_ptr);
+  if (size == leaf_ptr->GetMaxSize()) {
+    auto new_leaf_ptr = SplitPage<IN_TREE_LEAF_PAGE_TYPE>(leaf_ptr);
 
     leaf_ptr->MoveHalfTo(new_leaf_ptr);
     new_leaf_ptr->SetNextPageId(leaf_ptr->GetNextPageId());
@@ -115,14 +114,14 @@ bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value, 
     buffer_pool_manager_->UnpinPage(new_leaf_ptr->GetPageId(), true);
   }
 
-  page_ptr->SetDirty(true);
+  buffer_pool_manager_->UnpinPage(page_ptr->GetPageId(), true);
   return true;
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-Page *BPLUSTREE_TYPE::FindLeafPage(const KeyType &key, bool leftMost, int mode, Transaction* transaction) {
+auto BPLUSTREE_TYPE::FindLeafPage(const KeyType &key, bool leftMost, int mode, Transaction *transaction) -> Page * {
   // std::shared_ptr<std::deque<Page *>> deque_ptr = nullptr;
-  if (IsEmpty()){
+  if (IsEmpty()) {
     return nullptr;
   }
 
@@ -130,24 +129,24 @@ Page *BPLUSTREE_TYPE::FindLeafPage(const KeyType &key, bool leftMost, int mode, 
   page_id_t last_page_id = INVALID_PAGE_ID;
   Page *page_ptr = nullptr;
   Page *last_page_ptr = nullptr;
-  BPlusTreePage* tree_ptr;
+  BPlusTreePage *tree_ptr;
 
-  while (true){
+  while (true) {
     page_ptr = buffer_pool_manager_->FetchPage(page_id);
     assert(page_ptr != nullptr);
-    tree_ptr = reinterpret_cast<BPlusTreePage*>(page_ptr->GetData());
+    tree_ptr = reinterpret_cast<BPlusTreePage *>(page_ptr->GetData());
 
-    if(last_page_ptr != nullptr){
+    if (last_page_ptr != nullptr) {
       buffer_pool_manager_->UnpinPage(last_page_id, false);
     }
     bool is_leaf = tree_ptr->IsLeafPage();
-    if (is_leaf){
+    if (is_leaf) {
       break;
     }
     last_page_id = page_id;
     last_page_ptr = page_ptr;
 
-    IN_TREE_INTERNAL_PAGE_TYPE* internal_ptr = reinterpret_cast<IN_TREE_INTERNAL_PAGE_TYPE*>(tree_ptr);
+    auto internal_ptr = reinterpret_cast<IN_TREE_INTERNAL_PAGE_TYPE *>(tree_ptr);
     page_id = internal_ptr->Lookup(key, comparator_);
   }
 
@@ -156,15 +155,14 @@ Page *BPLUSTREE_TYPE::FindLeafPage(const KeyType &key, bool leftMost, int mode, 
 
 INDEX_TEMPLATE_ARGUMENTS
 template <typename N>
-N *BPLUSTREE_TYPE::SplitPage(N *node) {
+auto BPLUSTREE_TYPE::SplitPage(N *node) -> N * {
   page_id_t new_page_id;
-  Page* new_page_ptr = buffer_pool_manager_->NewPage(new_page_id);
+  Page *new_page_ptr = buffer_pool_manager_->NewPage(&new_page_id);
 
-  N* type_n_page_ptr = reinterpret_cast<N*>(new_page_ptr->GetData());
-  if (node->IsLeafPage()){
+  N *type_n_page_ptr = reinterpret_cast<N *>(new_page_ptr->GetData());
+  if (node->IsLeafPage()) {
     type_n_page_ptr->Init(new_page_id, node->GetParentPageId(), leaf_max_size_);
-  }
-  else{
+  } else {
     type_n_page_ptr->Init(new_page_id, node->GetParentPageId(), internal_max_size_);
   }
 
@@ -172,12 +170,13 @@ N *BPLUSTREE_TYPE::SplitPage(N *node) {
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &key, BPlusTreePage *new_node, Transaction *transaction) {
-  if (old_node->IsRootPage()){  // Which means root has been split and need to construct a new root
+void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &key, BPlusTreePage *new_node,
+                                      Transaction *transaction) {
+  if (old_node->IsRootPage()) {  // Which means root has been split and need to construct a new root
     page_id_t new_root_page_id;
-    Page* new_root_page_ptr;
-    new_root_page_ptr = buffer_pool_manager_->NewPage(new_root_page_id);
-    IN_TREE_INTERNAL_PAGE_TYPE *new_root_ptr = reinterpret_cast<IN_TREE_INTERNAL_PAGE_TYPE*>(new_root_page_ptr->GetData());
+    Page *new_root_page_ptr;
+    new_root_page_ptr = buffer_pool_manager_->NewPage(&new_root_page_id);
+    auto new_root_ptr = reinterpret_cast<IN_TREE_INTERNAL_PAGE_TYPE *>(new_root_page_ptr->GetData());
 
     new_root_ptr->Init(new_root_page_id, INVALID_PAGE_ID, internal_max_size_);
 
@@ -185,7 +184,7 @@ void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &ke
     new_node->SetParentPageId(new_root_page_id);
     new_root_ptr->PopulateNewRoot(old_node->GetPageId(), key, new_node->GetPageId());
 
-    SetRootPageId(new_root_page_id);
+    root_page_id_ = new_root_page_id;
     UpdateRootPageId(0);
     buffer_pool_manager_->UnpinPage(new_root_page_id, true);
     return;
@@ -193,28 +192,21 @@ void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &ke
 
   page_id_t parent_page_id = old_node->GetParentPageId();
   Page *parent_page_ptr = buffer_pool_manager_->FetchPage(parent_page_id);
-  IN_TREE_INTERNAL_PAGE_TYPE *parent_ptr = reinterpret_cast<IN_TREE_INTERNAL_PAGE_TYPE*>(parent_page_ptr->GetData());
+  auto parent_ptr = reinterpret_cast<IN_TREE_INTERNAL_PAGE_TYPE *>(parent_page_ptr->GetData());
 
-  int new_size = parent_ptr->InsertNodeAfter(old_node->GetPageId(),
-                                             key,
-                                             new_node->GetPageId());
+  int new_size = parent_ptr->InsertNodeAfter(old_node->GetPageId(), key, new_node->GetPageId());
 
-  if (new_size == parent_ptr->GetMaxSize()){
-    IN_TREE_INTERNAL_PAGE_TYPE* new_parent_ptr = SplitPage<IN_TREE_INTERNAL_PAGE_TYPE>(parent_ptr);
+  if (new_size == parent_ptr->GetMaxSize()) {
+    auto new_parent_ptr = SplitPage<IN_TREE_INTERNAL_PAGE_TYPE>(parent_ptr);
 
     parent_ptr->MoveHalfTo(new_parent_ptr, buffer_pool_manager_);
-    InsertIntoParent(parent_ptr,
-                     new_parent_ptr->KeyAt(0),
-                     new_parent_ptr,
-                     transaction);
+    InsertIntoParent(parent_ptr, new_parent_ptr->KeyAt(0), new_parent_ptr, transaction);
 
     buffer_pool_manager_->UnpinPage(new_parent_ptr->GetPageId(), true);
   }
 
   buffer_pool_manager_->UnpinPage(parent_page_id, true);
 }
-
-
 
 /*****************************************************************************
  * REMOVE
@@ -228,30 +220,28 @@ void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &ke
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
-  if (IsEmpty()){
+  if (IsEmpty()) {
     return;
   }
 
-  Page* leaf_page_ptr = FindLeafPage(key, false, 2, transaction);
-  page_id_t leaf_page_id = leaf_page_ptr->GetPageId();
-  IN_TREE_LEAF_PAGE_TYPE* leaf_ptr = reinterpret_cast<IN_TREE_LEAF_PAGE_TYPE*>(leaf_page_ptr->GetData());
+  Page *leaf_page_ptr = FindLeafPage(key, false, 2, transaction);
+  // page_id_t leaf_page_id = leaf_page_ptr->GetPageId();
+  auto leaf_ptr = reinterpret_cast<IN_TREE_LEAF_PAGE_TYPE *>(leaf_page_ptr->GetData());
 
   int index = leaf_ptr->KeyIndex(key, comparator_);
-  if(leaf_ptr->KetAt(index) != key){  
+  if (comparator_(leaf_ptr->KeyAt(index), key) != 0) {
     return;
   }
   leaf_ptr->RemoveAt(index);
   bool ret = false;
-  if (leaf_ptr->GetSize() < leaf_ptr->GetMinSize()){
+  if (leaf_ptr->GetSize() < leaf_ptr->GetMinSize()) {
     ret = CoalesceOrRedistribute<IN_TREE_LEAF_PAGE_TYPE>(leaf_ptr, transaction);
   }
 
-  if(!ret)
-    leaf_page_ptr->SetDirty(true);
+  if (!ret) {
+    buffer_pool_manager_->UnpinPage(leaf_page_ptr->GetPageId(), true);
   }
-
 }
-
 
 /*
  * User needs to first find the sibling of input page. If sibling's size + input
@@ -262,8 +252,8 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 template <typename N>
-bool BPLUSTREE_TYPE::CoalesceOrRedistribute(N *node, Transaction *transaction) {
-  if (node->IsRootPage()){
+auto BPLUSTREE_TYPE::CoalesceOrRedistribute(N *node, Transaction *transaction) -> bool {
+  if (node->IsRootPage()) {
     return AdjustRoot(node);
   }
 
@@ -273,21 +263,21 @@ bool BPLUSTREE_TYPE::CoalesceOrRedistribute(N *node, Transaction *transaction) {
   Page *parent_page_ptr;
   Page *prev_page_ptr;
   Page *next_page_ptr;
-  IN_TREE_INTERNAL_PAGE_TYPE* parent_ptr;
+  IN_TREE_INTERNAL_PAGE_TYPE *parent_ptr;
   N *prev_node;
-  N *next_node;
+  N *next_node = nullptr;
 
   parent_page_id = node->GetParentPageId();
   parent_page_ptr = buffer_pool_manager_->FetchPage(parent_page_id);
-  parent_ptr = reinterpret_cast<IN_TREE_INTERNAL_PAGE_TYPE*>(parent_page_ptr->GetData());
+  parent_ptr = reinterpret_cast<IN_TREE_INTERNAL_PAGE_TYPE *>(parent_page_ptr->GetData());
 
   int node_index = parent_ptr->ValueIndex(node->GetPageId());
-  if (node_index > 0){
+  if (node_index > 0) {
     prev_page_id = parent_ptr->ValueAt(node_index - 1);
     prev_page_ptr = buffer_pool_manager_->FetchPage(prev_page_id);
-    prev_node = reinterpret_cast<N*>(prev_page_ptr->GetData());
+    prev_node = reinterpret_cast<N *>(prev_page_ptr->GetData());
 
-    if (prev_node->GetSize() > prev_node->GetMinSize()){
+    if (prev_node->GetSize() > prev_node->GetMinSize()) {
       Redistribute(prev_node, node, 1);
 
       buffer_pool_manager_->UnpinPage(parent_page_id, true);
@@ -296,15 +286,15 @@ bool BPLUSTREE_TYPE::CoalesceOrRedistribute(N *node, Transaction *transaction) {
     }
   }
 
-  if (node_index != parent_ptr->GetSize() - 1){
+  if (node_index != parent_ptr->GetSize() - 1) {
     next_page_id = parent_ptr->ValueAt(node_index + 1);
     next_page_ptr = buffer_pool_manager_->FetchPage(next_page_id);
-    next_node = reinterpret_cast<N*>(next_page_ptr->GetData());
-    if (next_node->GetSize() > next_node->GetMinSize()){
+    next_node = reinterpret_cast<N *>(next_page_ptr->GetData());
+    if (next_node->GetSize() > next_node->GetMinSize()) {
       Redistribute(next_node, node, 0);
 
       buffer_pool_manager_->UnpinPage(parent_page_id, true);
-      if (node_index > 0){
+      if (node_index > 0) {
         buffer_pool_manager_->UnpinPage(prev_page_id, false);
       }
       buffer_pool_manager_->UnpinPage(next_page_id, true);
@@ -314,12 +304,12 @@ bool BPLUSTREE_TYPE::CoalesceOrRedistribute(N *node, Transaction *transaction) {
   }
 
   bool ret = false;
-  if (prev_page_id != INVALID_PAGE_ID){
+  if (prev_page_id != INVALID_PAGE_ID) {
     ret = Coalesce(&prev_node, &node, &parent_ptr, node_index, transaction);
 
     buffer_pool_manager_->UnpinPage(parent_page_id, true);
     buffer_pool_manager_->UnpinPage(prev_page_id, true);
-    if (next_page_id != INVALID_PAGE_ID){
+    if (next_page_id != INVALID_PAGE_ID) {
       buffer_pool_manager_->UnpinPage(next_page_id, false);
     }
 
@@ -330,10 +320,9 @@ bool BPLUSTREE_TYPE::CoalesceOrRedistribute(N *node, Transaction *transaction) {
   ret = Coalesce(&node, &next_node, &parent_ptr, node_index + 1, transaction);
   buffer_pool_manager_->UnpinPage(parent_page_id, true);
   buffer_pool_manager_->UnpinPage(next_page_id, true);
-  
+
   return false;
 }
-
 
 /*
  * Update root page if necessary
@@ -346,24 +335,23 @@ bool BPLUSTREE_TYPE::CoalesceOrRedistribute(N *node, Transaction *transaction) {
  * happend
  */
 INDEX_TEMPLATE_ARGUMENTS
-bool BPLUSTREE_TYPE::AdjustRoot(BPlusTreePage *old_root_node) {
-  if (old_root_node->GetSize() > 1){
+auto BPLUSTREE_TYPE::AdjustRoot(BPlusTreePage *old_root_node) -> bool {
+  if (old_root_node->GetSize() > 1) {
     return false;
   }
 
   page_id_t new_root_id;
-  if (old_root_node->IsLeafPage()){
-    if (old_root_node->GetSize() == 1){
+  if (old_root_node->IsLeafPage()) {
+    if (old_root_node->GetSize() == 1) {
       return false;
     }
     new_root_id = INVALID_PAGE_ID;
-  }
-  else{
-    IN_TREE_INTERNAL_PAGE_TYPE* old_root_internal_node = reinterpret_cast<IN_TREE_INTERNAL_PAGE_TYPE*>(old_root_node);
-    new_root_id = old_root_internal_node->RemoveAndReturnOnlyChild(); // check nullptr here???
+  } else {
+    auto old_root_internal_node = reinterpret_cast<IN_TREE_INTERNAL_PAGE_TYPE *>(old_root_node);
+    new_root_id = old_root_internal_node->RemoveAndReturnOnlyChild();  // check nullptr here???
 
-    Page* new_root_page_ptr = buffer_pool_manager_->FetchPage(new_root_id);
-    IN_TREE_INTERNAL_PAGE_TYPE* new_root_ptr = reinterpret_cast<IN_TREE_INTERNAL_PAGE_TYPE*>(new_root_page_ptr->GetData());
+    Page *new_root_page_ptr = buffer_pool_manager_->FetchPage(new_root_id);
+    auto new_root_ptr = reinterpret_cast<IN_TREE_INTERNAL_PAGE_TYPE *>(new_root_page_ptr->GetData());
     new_root_ptr->SetParentPageId(INVALID_PAGE_ID);
     buffer_pool_manager_->UnpinPage(new_root_id, true);
   }
@@ -373,7 +361,6 @@ bool BPLUSTREE_TYPE::AdjustRoot(BPlusTreePage *old_root_node) {
 
   return true;
 }
-
 
 /*
  * Redistribute key & value pairs from one page to its sibling page. If index ==
@@ -389,42 +376,35 @@ template <typename N>
 void BPLUSTREE_TYPE::Redistribute(N *neighbor_node, N *node, int index) {
   page_id_t parent_page_id = node->GetParentPageId();
   Page *parent_page_ptr = buffer_pool_manager_->FetchPage(parent_page_id);
-  IN_TREE_INTERNAL_PAGE_TYPE* parent_ptr = reinterpret_cast<IN_TREE_INTERNAL_PAGE_TYPE*>(parent_page_ptr->GetData());
+  auto parent_ptr = reinterpret_cast<IN_TREE_INTERNAL_PAGE_TYPE *>(parent_page_ptr->GetData());
 
-  if (node->IsLeafPage()){
-    IN_TREE_LEAF_PAGE_TYPE* op_node =
-      reinterpret_cast<IN_TREE_LEAF_PAGE_TYPE*>(node);
-    IN_TREE_LEAF_PAGE_TYPE* op_neighbor_node =
-      reinterpret_cast<IN_TREE_LEAF_PAGE_TYPE*>(neighbor_node);
+  if (node->IsLeafPage()) {
+    auto op_node = reinterpret_cast<IN_TREE_LEAF_PAGE_TYPE *>(node);
+    auto op_neighbor_node = reinterpret_cast<IN_TREE_LEAF_PAGE_TYPE *>(neighbor_node);
 
-    if (index == 0){
+    if (index == 0) {
       op_neighbor_node->MoveFirstToEndOf(op_node);
 
       int node_index = parent_ptr->ValueIndex(op_neighbor_node->GetPageId());
       parent_ptr->SetKeyAt(node_index, op_neighbor_node->KeyAt(0));
-    }
-    else{
+    } else {
       op_neighbor_node->MoveLastToFrontOf(op_node);
 
       int node_index = parent_ptr->ValueIndex(op_node->GetPageId());
       parent_ptr->SetKeyAt(node_index, op_node->KeyAt(0));
     }
-  }
-  else{
-    IN_TREE_INTERNAL_PAGE_TYPE* op_node =
-      reinterpret_cast<IN_TREE_INTERNAL_PAGE_TYPE*>(node);
-    IN_TREE_INTERNAL_PAGE_TYPE* op_neighbor_node =
-      reinterpret_cast<IN_TREE_INTERNAL_PAGE_TYPE*>(neighbor_node);
+  } else {
+    auto op_node = reinterpret_cast<IN_TREE_INTERNAL_PAGE_TYPE *>(node);
+    auto op_neighbor_node = reinterpret_cast<IN_TREE_INTERNAL_PAGE_TYPE *>(neighbor_node);
 
-    if (index == 0){
+    if (index == 0) {
       int node_index = parent_ptr->ValueIndex(op_neighbor_node->GetPageId());
       KeyType middle_key = parent_ptr->KeyAt(node_index);
       KeyType next_middle_key = op_neighbor_node->KeyAt(1);
 
       op_neighbor_node->MoveFirstToEndOf(op_node, middle_key, buffer_pool_manager_);
       parent_ptr->SetKeyAt(node_index, next_middle_key);
-    }
-    else{
+    } else {
       int node_index = parent_ptr->ValueIndex(op_node->GetPageId());
       KeyType middle_key = parent_ptr->KeyAt(node_index);
       KeyType next_middle_key = op_neighbor_node->KeyAt(op_neighbor_node->GetSize() - 1);
@@ -436,7 +416,6 @@ void BPLUSTREE_TYPE::Redistribute(N *neighbor_node, N *node, int index) {
 
   buffer_pool_manager_->UnpinPage(parent_page_id, true);
 }
-
 
 /*
  * Move all the key & value pairs from one page to its sibling page, and notify
@@ -452,34 +431,32 @@ void BPLUSTREE_TYPE::Redistribute(N *neighbor_node, N *node, int index) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 template <typename N>
-bool BPLUSTREE_TYPE::Coalesce(N **neighbor_node, N **node,
+auto BPLUSTREE_TYPE::Coalesce(N **neighbor_node, N **node,
                               BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator> **parent, int index,
-                              Transaction *transaction) {
-  if ((*node)->IsLeafPage()){
-    IN_TREE_LEAF_PAGE_TYPE* op_node =
-      reinterpret_cast<IN_TREE_LEAF_PAGE_TYPE*>(*node);
-    IN_TREE_LEAF_PAGE_TYPE* op_neighbor_node =
-      reinterpret_cast<IN_TREE_LEAF_PAGE_TYPE*>(*neighbor_node);
+                              Transaction *transaction) -> bool {
+  if (!neighbor_node || !node || !(*neighbor_node) || !(*node)) {
+    return false;
+  }
+
+  if ((*node)->IsLeafPage()) {
+    auto op_node = reinterpret_cast<IN_TREE_LEAF_PAGE_TYPE *>(*node);
+    auto op_neighbor_node = reinterpret_cast<IN_TREE_LEAF_PAGE_TYPE *>(*neighbor_node);
 
     op_node->MoveAllTo(op_neighbor_node);
-  }
-  else{
-    IN_TREE_INTERNAL_PAGE_TYPE* op_node =
-      reinterpret_cast<IN_TREE_INTERNAL_PAGE_TYPE*>(*node);
-    IN_TREE_INTERNAL_PAGE_TYPE* op_neighbor_node =
-      reinterpret_cast<IN_TREE_INTERNAL_PAGE_TYPE*>(*neighbor_node);
+  } else {
+    auto op_node = reinterpret_cast<IN_TREE_INTERNAL_PAGE_TYPE *>(*node);
+    auto op_neighbor_node = reinterpret_cast<IN_TREE_INTERNAL_PAGE_TYPE *>(*neighbor_node);
 
     KeyType middle_key = (*parent)->KeyAt(index);
     op_node->MoveAllTo(op_neighbor_node, middle_key, buffer_pool_manager_);
   }
 
   (*parent)->Remove(index);
-  if ((*parent)->GetSize() < (*parent)->GetMinSize()){
+  if ((*parent)->GetSize() < (*parent)->GetMinSize()) {
     return CoalesceOrRedistribute(*parent, transaction);
   }
   return false;
 }
-
 
 /*****************************************************************************
  * INDEX ITERATOR

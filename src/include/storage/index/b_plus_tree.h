@@ -22,6 +22,8 @@
 namespace bustub {
 
 #define BPLUSTREE_TYPE BPlusTree<KeyType, ValueType, KeyComparator>
+#define IN_TREE_INTERNAL_PAGE_TYPE BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>
+#define IN_TREE_LEAF_PAGE_TYPE BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>
 
 /**
  * Main class providing the API for the Interactive B+ Tree.
@@ -88,32 +90,32 @@ class BPlusTree {
   // Insert the key-value pair into a leaf. If insert succeed, return true. Otherwise return false.
   auto InsertIntoLeaf(const KeyType &key, const ValueType &value, Transaction *transaction) -> bool;
 
-
-  auto FindLeafPage(const KeyType &key, bool leftMost, int mode, Transaction* transaction) -> Page *;
-
-  template <typename N>
-  N *SplitPage(N *node);
+  auto FindLeafPage(const KeyType &key, bool leftMost, int mode, Transaction *transaction) -> Page *;
 
   template <typename N>
-  bool CoalesceOrRedistribute(N *node, Transaction *transaction);
+  auto SplitPage(N *node) -> N *;
+
+  template <typename N>
+  auto CoalesceOrRedistribute(N *node, Transaction *transaction) -> bool;
 
   auto AdjustRoot(BPlusTreePage *old_root_node) -> bool;
 
   template <typename N>
-  void Redistribute(N *neighbor_node, N *node, int index)
+  void Redistribute(N *neighbor_node, N *node, int index);
 
   template <typename N>
-  bool Coalesce(N **neighbor_node, N **node, BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator> **parent, int index, Transaction *transaction)
-/*
- * Insert key & value pair into internal page after split
- * @param   old_node      input page from split() method
- * @param   key
- * @param   new_node      returned page from split() method
- * User needs to first find the parent page of old_node, parent node must be
- * adjusted to take info of new_node into account. Remember to deal with split
- * recursively if necessary.
- */
-  void InsertIntoParent(BPlusTreePage *old_node, const KeyType &key, BPlusTreePage *new_node, Transaction *transaction)
+  auto Coalesce(N **neighbor_node, N **node, BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator> **parent,
+                int index, Transaction *transaction) -> bool;
+  /*
+   * Insert key & value pair into internal page after split
+   * @param   old_node      input page from split() method
+   * @param   key
+   * @param   new_node      returned page from split() method
+   * User needs to first find the parent page of old_node, parent node must be
+   * adjusted to take info of new_node into account. Remember to deal with split
+   * recursively if necessary.
+   */
+  void InsertIntoParent(BPlusTreePage *old_node, const KeyType &key, BPlusTreePage *new_node, Transaction *transaction);
   // member variable
   std::string index_name_;
   page_id_t root_page_id_;
